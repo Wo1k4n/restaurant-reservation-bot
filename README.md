@@ -1,4 +1,4 @@
-# Café Reservierungs-Bot
+# Restaurant Reservierungs-Bot
 
 Mein erstes Projekt mit n8n. Ein Chat-Bot, der Restaurant-Reservierungen 
 entgegennimmt und automatisch in den Google Kalender einträgt.
