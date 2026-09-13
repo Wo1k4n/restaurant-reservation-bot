@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Café 8Le – Reservation Bot</title>
+</head>
+
+<style>
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background: #0a1b18;
+  font-family: sans-serif;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.chat-wrapper {
+  width: 100%;
+  max-width: 500px;
+  background: #102C26;
+  border-radius: 20px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  height: 600px;
+}
+
+.chat-header {
+  background: #194239;
+  padding: 20px;
+  color: #F7E7CE;
+  font-size: 20px;
+  font-weight: bold;
+  text-align: center;
+}
+
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.msg {
+  max-width: 80%;
+  padding: 12px 16px;
+  border-radius: 18px;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.msg.bot {
+  background: #194239;
+  color: #F7E7CE;
+  align-self: flex-start;
+  border-bottom-left-radius: 4px;
+}
+
+.msg.user {
+  background: #F7E7CE;
+  color: #0a1b18;
+  align-self: flex-end;
+  border-bottom-right-radius: 4px;
+}
+
+.typing {
+  background: #194239;
+  color: #F7E7CE;
+  padding: 12px 16px;
+  border-radius: 18px;
+  border-bottom-left-radius: 4px;
+  align-self: flex-start;
+  font-size: 20px;
+  letter-spacing: 4px;
+}
+
+.chat-input {
+  display: flex;
+  gap: 10px;
+  padding: 16px;
+  background: #0a1b18;
+}
+
+.chat-input input {
+  flex: 1;
+  padding: 12px 16px;
+  border-radius: 30px;
+  border: none;
+  background: #194239;
+  color: #F7E7CE;
+  font-size: 15px;
+  outline: none;
+}
+
+.chat-input input::placeholder {
+  color: #7a9e94;
+}
+
+.chat-input button {
+  padding: 12px 20px;
+  border-radius: 30px;
+  border: none;
+  background: #F7E7CE;
+  color: #0a1b18;
+  font-weight: bold;
+  cursor: pointer;
+  font-size: 15px;
+}
+</style>
+
+<body>
+  <div class="chat-wrapper">
+    <div class="chat-header"> Café-Assistent</div>
+    <div class="chat-messages" id="messages">
+      <div class="msg bot">Hallo!</div>
+    </div>
+    <div class="chat-input">
+      <input id="eingabe" placeholder="Schreib eine Frage..." onkeydown="if(event.key==='Enter')senden()">
+      <button onclick="senden()">Senden</button>
+    </div>
+  </div>
+
+  <script>
+const WEBHOOK_URL = "http://localhost:5678/webhook/302d204f-91a7-477d-b145-cd2ca5ac9dcc";
+
+const SYSTEM_PROMPT = "Du bist ein Reservierungsassistent für das Le Café in Ingolstadt. Deine einzige Aufgabe ist es Reservierungen aufzunehmen. Frag den Kunden nach: 1. Name, 2. Datum, 3. Uhrzeit, 4. Personenanzahl. Frag immer auch nach Nachnamen. Verwende immer das aktuelle jahr 2026 wenn kein Jahr angegeben wird. Frag immer nur eine Sache auf einmal. Akzeptiere nur Namen, die echt sind und keine wörter die keinen Namen bilden wie zum Beispiel nangfio, oder aaaa, oder baum oder andere normale Nomen oder Satzglieder wie boden, tisch, pflanze, usw.. Wandle alle Datumsangaben immer in das Format DD.MM.YYYY um. Wandle alle Uhrzeiten immer in das Format HH:mm um. Wandle Personenangaben wie 'nur ich' oder 'alleine' immer in die Zahl 1 um. Wenn du alle 4 Infos hast, antworte NUR mit dieser einen Zeile und absolut nichts anderem davor oder danach: RESERVIERUNG:Name=xxx,Datum=DD.MM.YYYY,Uhrzeit=HH:mm,Personen=x. Wenn er noch irgendwelche Fragen hat oder einfach so schreiben will dann mach das und achte darauf dass du dann hin und wieder dem Kunden positives über das Restaurant erzählst. Hier sind ein paar Sachen die du dazu wissen musst: Frühstück • Mittagessen • Abendessen • Pizza • Pasta • Burger • Fleischgerichte • Fischgerichte • Salate • Vegetarische Gerichte • Vegane Gerichte • Kaffee • Cappuccino • Latte Macchiato • Kuchen • Torten • Eis • Cocktails • Wein • Whisky • Außenterrasse • Gemütliches Ambiente • Zentrale Lage in der Altstadt • Lange Öffnungszeiten • Freundliches Personal • Geeignet für Treffen mit Freunden • Gut zum Lernen/Arbeiten • Veranstaltungen und Feiern möglich • Wechselnde Mittagskarte • Große Speisenauswahl • Große Getränkeauswahl • Modernes Café-Restaurant-Konzept • Frühstück bis in den Vormittag • Sitzplätze drinnen und draußen • Beliebter Treffpunkt in Ingolstadt.";
+
+let verlauf = [];
+
+async function senden() {
+  const input = document.getElementById("eingabe");
+  const text = input.value.trim();
+  if (!text) return;
+
+  const messages = document.getElementById("messages");
+
+  const userMsg = document.createElement("div");
+  userMsg.className = "msg user";
+  userMsg.innerText = text;
+  messages.appendChild(userMsg);
+  input.value = "";
+
+  verlauf.push({ role: "user", content: text });
+
+  const typing = document.createElement("div");
+  typing.className = "typing";
+  typing.innerText = "...";
+  messages.appendChild(typing);
+  messages.scrollTop = messages.scrollHeight;
+
+  const alleMessages = [
+    { role: "system", content: SYSTEM_PROMPT },
+    ...verlauf
+  ];
+
+  try {
+    const res = await fetch(WEBHOOK_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ messages: alleMessages })
+    });
+    const antwort = await res.text();
+    typing.remove();
+
+    verlauf.push({ role: "assistant", content: antwort });
+
+    const botMsg = document.createElement("div");
+    botMsg.className = "msg bot";
+    botMsg.innerText = antwort;
+    messages.appendChild(botMsg);
+  } catch(e) {
+    typing.remove();
+    const err = document.createElement("div");
+    err.className = "msg bot";
+    err.innerText = "Fehler – bitte prüf die Webhook URL.";
+    messages.appendChild(err);
+  }
+
+  messages.scrollTop = messages.scrollHeight;
+}
+  </script>
+</body>
+</html>
